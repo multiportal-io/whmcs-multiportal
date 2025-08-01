@@ -1,0 +1,48 @@
+# Configuration files
+config.json
+payg_config_local.php
+
+# Log files
+*.log
+logs/
+debug_*.log
+
+# Debug and test files
+debug_*.php
+test_*.php
+!test_*.example.php
+
+# IDE and system files
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Temporary files
+*.tmp
+*.temp
+*.cache
+
+# Credentials and sensitive data
+credentials.txt
+api_keys.txt
+*.key
+*.pem
+
+# Build artifacts
+vendor/
+node_modules/
+composer.lock
+package-lock.json
+
+# Documentation build
+docs/_build/
+docs/.doctrees/
+
+# Test coverage
+coverage/
+.phpunit.result.cache
+
+# Optional/custom hooks
