@@ -67,30 +67,55 @@ function ensureCustomFieldsExist()
     $created = [];
 
     try {
-        // Check and create client custom field
-        $clientField = Capsule::table('tblcustomfields')
-            ->where('type', 'client')
-            ->where('fieldname', 'MultiPortal Tenant UUID')
-            ->first();
-
-        if (!$clientField) {
-            Capsule::table('tblcustomfields')->insert([
-                'type' => 'client',
+        $clientFields = [
+            [
                 'fieldname' => 'MultiPortal Tenant UUID',
                 'fieldtype' => 'text',
                 'description' => 'Stores the MultiPortal tenant identifier',
-                'fieldoptions' => '',
-                'regexpr' => '',
-                'adminonly' => 'on',
-                'required' => '',
                 'showorder' => 'on',
-                'showinvoice' => '',
-                'sortorder' => 0
-            ]);
-            $created[] = 'Client field: MultiPortal Tenant UUID';
+            ],
+            [
+                'fieldname' => 'MultiPortal Username',
+                'fieldtype' => 'text',
+                'description' => 'Username for the MultiPortal tenant portal',
+            ],
+            [
+                'fieldname' => 'MultiPortal Password',
+                'fieldtype' => 'password',
+                'description' => 'Password for the MultiPortal tenant portal',
+            ],
+            [
+                'fieldname' => 'MultiPortal URL',
+                'fieldtype' => 'text',
+                'description' => 'URL for the MultiPortal tenant portal',
+            ],
+        ];
+
+        foreach ($clientFields as $fieldConfig) {
+            $field = Capsule::table('tblcustomfields')
+                ->where('type', 'client')
+                ->where('fieldname', $fieldConfig['fieldname'])
+                ->first();
+
+            if (!$field) {
+                Capsule::table('tblcustomfields')->insert([
+                    'type' => 'client',
+                    'fieldname' => $fieldConfig['fieldname'],
+                    'fieldtype' => $fieldConfig['fieldtype'],
+                    'description' => $fieldConfig['description'],
+                    'fieldoptions' => '',
+                    'regexpr' => '',
+                    'adminonly' => 'on',
+                    'required' => '',
+                    'showorder' => $fieldConfig['showorder'] ?? '',
+                    'showinvoice' => '',
+                    'sortorder' => $fieldConfig['sortorder'] ?? 0
+                ]);
+                $created[] = 'Client field: ' . $fieldConfig['fieldname'];
+            }
         }
     } catch (Exception $e) {
-        throw new Exception('Error creating client field: ' . $e->getMessage());
+        throw new Exception('Error creating client fields: ' . $e->getMessage());
     }
 
     try {
@@ -2452,6 +2477,39 @@ function multiportal_SetupWizard(array $params)
             'pid' => $productId
         ]);
 
+        $currencies = Capsule::table('tblcurrencies')->select('id')->get();
+        $pricingTemplate = [
+            'msetupfee' => '0.00',
+            'qsetupfee' => '0.00',
+            'ssetupfee' => '0.00',
+            'asetupfee' => '0.00',
+            'bsetupfee' => '0.00',
+            'tsetupfee' => '0.00',
+            'monthly' => '0.00',
+            'quarterly' => '0.00',
+            'semiannually' => '0.00',
+            'annually' => '0.00',
+            'biennially' => '0.00',
+            'triennially' => '0.00'
+        ];
+        $ensurePricing = function (int $relId) use ($currencies, $pricingTemplate) {
+            foreach ($currencies as $currency) {
+                $existing = Capsule::table('tblpricing')
+                    ->where('type', 'configoptions')
+                    ->where('currency', $currency->id)
+                    ->where('relid', $relId)
+                    ->first();
+
+                if (!$existing) {
+                    Capsule::table('tblpricing')->insert(array_merge([
+                        'type' => 'configoptions',
+                        'currency' => $currency->id,
+                        'relid' => $relId
+                    ], $pricingTemplate));
+                }
+            }
+        };
+
         // Create CPU option
         Capsule::table('tblproductconfigoptions')->insert([
             'gid' => $groupId,
@@ -2471,6 +2529,8 @@ function multiportal_SetupWizard(array $params)
             'sortorder' => 0,
             'hidden' => 0
         ]);
+        $cpuSubOptionId = (int) Capsule::getPdo()->lastInsertId();
+        $ensurePricing($cpuSubOptionId);
 
         // Create Memory option
         Capsule::table('tblproductconfigoptions')->insert([
@@ -2491,6 +2551,8 @@ function multiportal_SetupWizard(array $params)
             'sortorder' => 0,
             'hidden' => 0
         ]);
+        $memorySubOptionId = (int) Capsule::getPdo()->lastInsertId();
+        $ensurePricing($memorySubOptionId);
 
         // Fetch storage policies from the data center
         $api = initiateAPI($params);
@@ -2520,6 +2582,8 @@ function multiportal_SetupWizard(array $params)
                         'sortorder' => 0,
                         'hidden' => 0
                     ]);
+                    $storageSubOptionId = (int) Capsule::getPdo()->lastInsertId();
+                    $ensurePricing($storageSubOptionId);
                 }
             }
         }
@@ -2554,8 +2618,13 @@ function multiportal_SetupWizard(array $params)
                     'sortorder' => $index,
                     'hidden' => 0
                 ]);
+                $allocationSubId = (int) Capsule::getPdo()->lastInsertId();
                 multiportal_log('SetupWizard', ['sub_option' => $type, 'index' => $index], 'Created sub-option');
+            } else {
+                $allocationSubId = (int) $exists->id;
             }
+
+            $ensurePricing($allocationSubId);
         }
 
         // Verify the sub-options were created
