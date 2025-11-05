@@ -1813,8 +1813,8 @@ function multiportal_CreateAccount(array $params)
                     $multiportalUrl = 'https://' . $tenant['domain'];
                 } else {
                     // Fallback: construct from tenant name
-                    $tenantName = strtolower(preg_replace('/[^a-zA-Z0-9]/', '', $tenant['name']));
-                    $multiportalUrl = 'https://' . $tenantName . '.multiportal.io';
+                    //$tenantName = strtolower(preg_replace('/[^a-zA-Z0-9]/', '', $tenant['name']));
+                    $multiportalUrl = 'https://' . $params['serverhostname'] . '/';
                 }
                 
                 // Store credentials in CLIENT custom fields (not service fields)
