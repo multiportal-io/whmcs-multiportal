@@ -4,13 +4,30 @@ use Illuminate\Database\Capsule\Manager as Capsule;
 
 /**
  * Utility: Set a custom field value for this service (e.g., VDC UUID)
+ *
+ * Looks up the field definition matching the service's product (relid = product ID).
+ * Falls back to relid = 0 if no product-specific field exists.
  */
 function setCustomFieldValue($serviceId, $fieldName, $value)
 {
-    $customField = Capsule::table('tblcustomfields')
-        ->where('type', 'product')
-        ->where('fieldname', $fieldName)
-        ->first();
+    $productId = Capsule::table('tblhosting')->where('id', $serviceId)->value('packageid');
+
+    // Prefer field matching the service's product, fall back to relid=0
+    $customField = null;
+    if ($productId) {
+        $customField = Capsule::table('tblcustomfields')
+            ->where('type', 'product')
+            ->where('fieldname', $fieldName)
+            ->where('relid', $productId)
+            ->first();
+    }
+    if (!$customField) {
+        $customField = Capsule::table('tblcustomfields')
+            ->where('type', 'product')
+            ->where('fieldname', $fieldName)
+            ->where('relid', 0)
+            ->first();
+    }
 
     if (!$customField) {
         throw new Exception("Custom field '$fieldName' not found.");
